@@ -1,0 +1,91 @@
+function thetas=prob5ab
+
+%% min((2*x^2+x*y+y^2+y*z+x^2-6*x-7*y-8*z+9)
+
+syms x y z ZZ real
+syms lambdaz
+thetas=2*x^2+x*y+y^2+y*z+z^2-6*x-7*y-8*z+9; %funcao a minimizar
+
+%% a) Condicoes necessarias de minimo:
+
+% Condicao de 1ordem para x* ser um optimo local:
+% E d tal que grad(f(x*))t.d<0 --> E delta>0 tal que f(x*+lambda.d)<f(x*)
+%para cada lambda pertencente [0, delta];
+
+gradfx=sym(zeros(3,1));hessian=sym(zeros(3,3));
+dfdx=diff(thetas,x);dfdy=diff(thetas,y);dfdz=diff(thetas,z);
+df2dx=diff(dfdx,x);df2dy=diff(dfdy,y);df2dz=diff(dfdz,z);
+df2dxy=diff(dfdy,x);df2dxz=diff(dfdz,x);df2dyz=diff(dfdz,y);
+gradfx(1,1)=dfdx;gradfx(2,1)=dfdy;gradfx(3,1)=dfdz;
+hessian(1,1)=df2dx;hessian(1,2)=df2dxy;hessian(1,3)=df2dxz;
+hessian(2,1)=df2dxy;hessian(2,2)=df2dy;hessian(2,3)=df2dyz;
+hessian(3,1)=df2dxz;hessian(3,2)=df2dyz;hessian(3,3)=df2dz;
+
+[xs1,xs2,xs3]=solve(dfdx,dfdy,dfdz,x,y,z);
+xs1=vpa(xs1);xs2=vpa(xs2);xs3=vpa(xs3);
+
+candidatos=double([xs1 xs2 xs3]);
+fprintf('\n')
+fprintf('CONDICAO DE 1A ORDEM\n')
+confirm_grd=zeros(size(candidatos,1),3);
+for i=1:size(candidatos,1)
+confirm_grd(i,:)=double(round(subs(gradfx,[x,y,z],[candidatos(i,1),candidatos(i,2),candidatos(i,3)])));
+fprintf('PONTO MINIMO RECORRENDO AS CONDICOES DE PRIMEIRA ORDEM:\n--> (%6.2f,%6.2f,%6.2f)\nCOM f=%6.3f\n ',candidatos(i,1),candidatos(i,2),candidatos(i,3),subs(thetas,[x,y,z],[candidatos(i,1),candidatos(i,2),candidatos(i,3)]))
+end
+
+% fprintf('\n')
+% if confirm_grd==zeros(size(confirm_grd));fprintf('Todos os candidatos a minimo local satisfazem a condicao de minimo de 1a ordem!\n');end
+% fprintf('\n')
+
+fprintf('\n')
+fprintf('CONDICAO DE 2A ORDEM\n')
+confirm_hess=zeros(3,3,size(candidatos,1));k=0;
+for i=1:size(candidatos,1)
+confirm_hess(:,:,i)=double(round(subs(hessian,[x,y,z],[candidatos(i,1),candidatos(i,2),candidatos(i,3)])));
+if confirm_hess(1,1,i)>=0 && confirm_hess(2,2,i)>=0 && confirm_hess(3,3,i)>=0 && det(confirm_hess(:,:,i))>=0
+    fprintf('Hessiana de (%6.2f,%6.2f,%6.2f) e semi-positiva definida com determinante %6.3f\n',candidatos(i,1),candidatos(i,2),candidatos(i,3),det(confirm_hess(:,:,i)))
+    k=k+1;minlocal(k,:)=candidatos(i,:);
+else
+    fprintf('Hessiana de (%6.2f,%6.2f,%6.2f) nao e semi-positiva definida\n',candidatos(i,1),candidatos(i,2),candidatos(i,3))
+end
+end
+%confirm_hess(1,1,i)*confirm_hess(2,2,i)-confirm_hess(1,2,i)^2>=0
+fprintf('\n')
+
+fprintf('Minimos locais:\n')
+for i=1:size(minlocal,1);fval(i)=subs(thetas,[x,y,z],[minlocal(i,1),minlocal(i,2),minlocal(i,3)]);fprintf('(%6.2f,%6.2f,%6.2f)-->f=%6.4f;\n',minlocal(i,1),minlocal(i,2),minlocal(i,3),fval(i));end
+
+xp1=0:0.01:3;xp2=0:0.01:3;zp=0:0.01:3;
+[X1,X2]=meshgrid(xp1,xp2);
+
+% X3a=4-(-8*X1.^2-4*X1.*X2+24*X1-3*X2.^2+12*X2+28).^(1/2)/2-X2/2;
+% X3b=(-8*X1.^2-4*X1.*X2+24*X1-3*X2.^2+12*X2+28).^(1/2)/2-X2/2+4;
+F=2*X1.^2+X1.*X2+X2.^2+X2.*X3+X3.^2-6*X1-7*X2-8*X3+9;
+% [C1,h1] = contour(xp1,xp2,X3c,-12.4,'k*-');clabel(C1,h1);plot(1.2,1.2,'bo')
+
+contour3(X1,X2,F,-12.4:.2:0);
+% Preparar o plot da funcao
+titulo='Minimizacao - Metodo de Davidon-Fletcher-Powell';
+            
+scrsz = get(0,'ScreenSize');
+posfig=[scrsz(3) scrsz(4) scrsz(3) scrsz(4)];
+
+figure('Name',['Problema 5: ',titulo],...
+'NumberTitle','off','OuterPosition',posfig);
+hold on;
+
+contour3(X1,X2,X3b,-12.4:.2:0);hold on;
+contour3(X1,X2,X3a,-12.4:.2:0);
+% for i=1:length(zp)
+% X3c=2*X1.^2+X1.*X2+X2.^2+X2*zp(i)+zp(i)^2-6*X1-7*X2-8*zp(i)+9;
+% contour(X1,X2,X3c);hold on
+% end
+plot3(candidatos(1,1),candidatos(1,2),candidatos(1,3),'ro','MarkerSize',10,'MarkerFaceColor','y')
+view(50,50);legend('f=2x^2+xy+y^2+yz+z^2-6x-7y-8z+9','','','','','X_o_p_t=(1.2;1.2;3.4)')
+xlabel('X1');ylabel('X2');ylabel('X3');grid on;
+
+% Condicao de 2ordem para x* ser um optimo local:
+% f:En-->E1 é duplamente diff em x*, se x* e um minimo local, entao
+% grad(f(x*))=0 e H(x*) e positivo semi-definido
+
+end

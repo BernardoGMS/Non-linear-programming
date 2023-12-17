@@ -1,0 +1,397 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Goncalo Bernardo
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%--------------------------------------------------
+%  Section 4.3.4: Inequality constrained problem
+%	Mininmize f(x1,x2) = -pi*0.6*0.12*x1*x2
+%   g1(x1,x2) = 0.12*x2 -0.6*x1 *(0.05 -0.12)/(0.6 -0.0) - 0.12
+%	g2(x1,x2) = pi*(1.8x1 + 0.36x2- sqrt((1.8*x1+0.12x2).*(0.6x1+0.36x2)))-1.75;
+%           0 <= x1 <= 1   0 <= x2 <= 1
+%
+%------------------------------------------------
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+clear  
+clc    
+close
+format compact 
+warning('off','all')
+
+syms x1 x2 u1 v1
+
+xp1 = linspace(0,2,101);
+xp2 = linspace(0,2,101);
+
+[X1, X2] = meshgrid(xp1,xp2);
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%  Calculate Function
+%%%% Remember x1 ==x;  x2 ==y
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+F = X1.^4-2*X1.^2.*X2+X1.^2+X1.*X2.^2-2*X1+4;
+f = x1^4-2*x1^2*x2+x1^2+x1*x2^2-2*x1+4;
+
+G1 = .25*X1.^2+.75*X2.^2-1;
+g1 = .25*x1^2+.75*x2^2-1;
+
+H1 = 2*X1.^2+X2.^2-2;
+h1 = 2*x1^2+x2^2-2;
+
+%%%%   Analytical solution  %%%%%%%%%%%%%%%%%%%%%%%%%%
+% first order conditions/necessary conditions
+
+Af = f + u1*g1 + v1*h1;
+
+dfdx1 = diff(Af,x);   % derivative of f wrt x1
+dfdx2 = diff(Af,y);   % derivative of f wrt x2
+
+%%%%  Collect the best solution
+%%%% Initialize them to zero
+x1b = 0;   x2b = 0;  beta1b = 0;   beta2b = 0;
+fb = Inf;   g1b = 0;   g2b = 0;
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%% Case(a) : beta1 = 0, beta2 = 0
+%%%%  Check g1 < 0 and g2 = 0 at solution - INACTIVE CONSTRAINTS
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+fprintf('\n\n')
+subs(dfdx1,{beta1,beta2},{0,0})
+
+%%%% using subs in the command below will force
+%%%% the values of beta1 and beta2 as they are
+%%%% symbolic variables
+solCasea = solve(subs(dfdx1,{beta1,beta2},{0,0}),subs(dfdx2,{beta1,beta2},{0,0}),'x,y');
+
+x1s = solCasea.x;
+x2s = solCasea.y;
+beta1s = zeros(size(x1s));
+beta2s = zeros(size(x1s));
+
+fs = subs(f,{x,y,beta1,beta2},{x1s,x2s,0,0});
+g1s = subs(g1,{x,y,beta1,beta2},{x1s,x2s,0,0});
+g2s = subs(g2,{x,y,beta1,beta2},{x1s,x2s,0,0});
+%%%% print all the solutions neatly
+fprintf('*******************************\n')
+fprintf('The solution    *** Case a *** \n')
+fprintf('*******************************\n')
+fprintf('         x1*      x2*        beta1*    beta2*    f*     g1        g2\n'), ...
+   disp(double([x1s x2s beta1s beta2s fs g1s g2s]))
+
+%%%%  Collect the best solution for Case a
+for i = 1:length(x1s)
+    x1sv = double((x1s(i)));
+    x2sv = double((x2s(i)));
+    beta1v = double(beta1s(i));
+    beta2v = double(beta2s(i));
+    g1sv = double(g1s(i));
+    g2sv = double(g2s(i));
+    fsv = double(fs(i));
+    if isreal(x1sv) && isreal(x2sv) && isreal(beta1v) && isreal(beta2v)% real numbers ???
+        if x1sv >= 0 && x2sv >= 0 && x1sv <=5 && x2sv <= 5  % meets side constraint ???
+            if g1sv <= 0 && round(g2sv*100)/100 ==0     % feasible solution  ???
+                if beta1v >= 0 %&& beta2v >= 0  % positive multipliers
+                    fprintf('passou: %6.4f/ %6.4f',x1sv,x2sv)
+                    if fsv < fb               % lower value of objective
+                        x1b = x1sv;
+                        x2b = x2sv;
+                        beta1b = beta1v;
+                        beta2b = beta2v;
+                        fb = fsv;
+                        g1b = g1sv;
+                        g2b = g2sv;
+                    end
+                end
+            end
+        end
+
+    end
+end
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%% Case(b) : beta1 = 0,g2 = 0
+%%%%  Check g1 < 0 and beta2 > 0 at solution -
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+fprintf('\n\n')
+clear x1s x2s beta1s beta2s fs g1s g2s
+%%%% using subs in the command below will force
+%%%% the values of beta1 and beta2 as they are
+%%%% symbolic variables
+solCaseb = solve(subs(dfdx1,{beta1},{0}),subs(dfdx2,{beta1},{0}),g2,'x,y,beta2');
+
+x1s = solCaseb.x;
+x2s = solCaseb.y;
+beta2s = solCaseb.beta2;
+beta1s = subs(beta1,0)*ones(size(beta2s),1);
+
+fs = subs(f,{x,y,beta1,beta2},{x1s,x2s,beta1s,beta2s});
+g1s = subs(g1,{x,y,beta1,beta2},{x1s,x2s,beta1s,beta2s});
+g2s = subs(g2,{x,y,beta1,beta2},{x1s,x2s,beta1s,beta2s});
+%%%% print all the solutions neatly
+fprintf('*******************************\n')
+fprintf('The solution    *** Case b *** \n')
+fprintf('*******************************\n')
+fprintf('      x1*      x2*        beta1*      beta2*    f*       g1        g2\n'), ...
+   disp(double([x1s x2s beta1s beta2s fs g1s g2s]))
+
+%%%%  Collect the best solution for Case a + Case b
+for i = 1:length(x1s)
+    x1sv = double((x1s(i)));
+    x2sv = double((x2s(i)));
+    beta1v = double(beta1s(i));
+    beta2v = double(beta2s(i));
+    g1sv = double(g1s(i));
+    g2sv = double(g2s(i));
+    fsv = double(fs(i));
+    if isreal(x1sv) && isreal(x2sv) && isreal(beta1v) && isreal(beta2v)% real numbers ???
+        if x1sv > 0 && x2sv > 0 && x1sv <=5 && x2sv <= 5  % meets side constraint ???
+            if g1sv <= 0 && round(g2sv*100)/100 ==0    % feasible solution  ???
+                if beta1v >= 0 %&& beta2v >= 0  % positive multipliers
+                    fprintf('passou: %6.4f/ %6.4f',x1sv,x2sv)
+                    if fsv < fb               % lower value of objective
+                        x1b = x1sv;
+                        x2b = x2sv;
+                        beta1b = beta1v;
+                        beta2b = beta2v;
+                        fb = fsv;
+                        g1b = g1sv;
+                        g2b = g2sv;
+                    end
+                end
+            end
+        end
+
+    end
+end
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%% Case(c) : g1 = 0, beta2 = 0
+%%%%  Check beta1 > 0 and g2 = 0 at solution -
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+fprintf('\n\n')
+clear x1s x2s beta1s beta2s fs g1s g2s
+%%%% using subs in the command below will force
+%%%% the values of beta1 and beta2 as they are
+%%%% symbolic variables
+solCasec = solve(subs(dfdx1,{beta2},{0}),subs(dfdx2,{beta2},{0}),g1,'x,y,beta1');
+
+x1s = solCasec.x;
+x2s = solCasec.y;
+beta1s = solCasec.beta1;
+beta2s = subs(beta2,0)*ones(size(beta1s),1);
+
+fs = subs(f,{x,y,beta1,beta2},{x1s,x2s,beta1s,beta2s});
+g1s = subs(g1,{x,y,beta1,beta2},{x1s,x2s,beta1s,beta2s});
+g2s = subs(g2,{x,y,beta1,beta2},{x1s,x2s,beta1s,beta2s});
+%%%% print all the solutions neatly
+fprintf('*******************************\n')
+fprintf('The solution    *** Case c *** \n')
+fprintf('*******************************\n')
+fprintf('      x1*      x2*        beta1*      beta2*    f*       g1        g2\n'), ...
+   disp(double([x1s x2s beta1s beta2s fs g1s g2s]))
+
+%%%%  Collect the best solution for Case a + Case b + Case c
+for i = 1:length(x1s)
+    x1sv = double((x1s(i)));
+    x2sv = double((x2s(i)));
+    beta1v = double(beta1s(i));
+    beta2v = double(beta2s(i));
+    g1sv = double(g1s(i));
+    g2sv = double(g2s(i));
+    fsv = double(fs(i));
+    if isreal(x1sv) && isreal(x2sv) && isreal(beta1v) && isreal(beta2v)% real numbers ???
+        if x1sv >= 0 && x2sv >= 0 && x1sv <=5 && x2sv <= 5  % meets side constraint ???
+            if g1sv <= 0 && round(g2sv*100)/100 ==0     % feasible solution  ???
+                if beta1v >= 0 %&& beta2v >= 0   % positive multipliers
+                    fprintf('passou: %6.4f/ %6.4f',x1sv,x2sv)
+                    if fsv < fb               % lower value of objective
+                        x1b = x1sv;
+                        x2b = x2sv;
+                        beta1b = beta1v;
+                        beta2b = beta2v;
+                        fb = fsv;
+                        g1b = g1sv;
+                        g2b = g2sv;
+                    end
+                end
+            end
+        end
+
+    end
+end
+
+% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% %%%% Case(d) : g1 = 0,g2 = 0
+% %%%%  Check beta1 > 0 and beta2 > 0 at solution -ACTIVE CONSTRAINTS
+% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+fprintf('\n\n')
+clear x1s x2s beta1s beta2s fs g1s g2s
+%%%% using subs in the command below will force
+%%%% the values of beta1 and beta2 as they are
+%%%% symbolic variables
+
+% solCasedxy = solve(g1,g2,'x,y')
+% justx1 = double(solCasedxy.x)
+% justx2 = double(solCasedxy.y)
+
+solCased = solve(subs(dfdx1),subs(dfdx2),g1,g2,'x,y,beta1,beta2');
+
+x1s = solCased.x;
+x2s = solCased.y;
+beta1s = solCased.beta1;
+beta2s = solCased.beta2;
+
+fs = subs(f,{x,y,beta1,beta2},{x1s,x2s,beta1s,beta2s});
+g1s = subs(g1,{x,y,beta1,beta2},{x1s,x2s,beta1s,beta2s});
+g2s = subs(g2,{x,y,beta1,beta2},{x1s,x2s,beta1s,beta2s});
+%%%% print all the solutions neatly
+fprintf('*******************************\n')
+fprintf('The solution    *** Case d *** \n')
+fprintf('*******************************\n')
+fprintf('      x1*      x2*        beta1*      beta2*    f*       g1        g2\n'), ...
+   disp(double([x1s x2s beta1s beta2s fs g1s g2s]))
+
+%%%%  Collect the best solution for Case a + Case b + Case c + case d
+for i = 1:length(x1s)
+    x1sv = double((x1s(i)));
+    x2sv = double((x2s(i)));
+    beta1v = double(beta1s(i));
+    beta2v = double(beta2s(i));
+    g1sv = double(g1s(i));
+    g2sv = double(g2s(i));
+    fsv = double(fs(i));
+    if isreal(x1sv) && isreal(x2sv) && isreal(beta1v) && isreal(beta2v)% real numbers ???
+        if x1sv >= 0 && x2sv >= 0 && x1sv <=5 && x2sv <= 5  % meets side constraint ???
+            if g1sv <= 0 && round(g2sv*100)/100 ==0    % feasible solution  ???
+                if beta1v >= 0 %&& beta2v >= 0  % positive multipliers ???
+                    fprintf('passou: %6.4f/ %6.4f',x1sv,x2sv)
+                    if fsv < fb               % lower value of objective
+                        x1b = x1sv;
+                        x2b = x2sv;
+                        beta1b = beta1v;
+                        beta2b = beta2v;
+                        fb = fsv;
+                        g1b = g1sv;
+                        g2b = g2sv;
+                    end
+                end
+            end
+        end
+
+    end
+end
+
+
+fprintf('*******************************\n')
+fprintf('The BEST SOLUTION               \n')
+fprintf('*******************************\n')
+fprintf('      x1*      x2*        beta1*      beta2*    f*       g1        g2\n'), ...
+   disp(double([x1b x2b beta1b beta2b fb g1b g2b]))
+
+x1u = 1;  x2u = 1;
+fval = subs(f,{x,y},{x1u, x2u});
+cvalues = linspace(-.005,fval,48);
+% %%%%  draw contours of the function
+% %%%% including the contour at the chosen point
+[C1,h1] = contour(x1,x2,F,[cvalues fb],'g-');
+clabel(C1,h1);  % comment this to ged rid of label
+
+grid
+title('Problema 3')
+xlabel('x_1')
+ylabel('x_2')
+%legend('Objective function')
+%
+hold on
+[C2,h2] = contour(x1,x2,G1,[0 0],'r-');
+clabel(C2,h2);  % comment this to ged rid of label
+set(h2,'LineWidth',2)
+% [XL1 YL1] = drawHashMarks(C2,'t');
+% hl2 = line(XL1,YL1,'Color','k','LineWidth',1);
+
+% draw a single contour of the inequality constrint g2
+[C3,h3] = contour(x1,x2,G2,[0 0],'r-');
+clabel(C3,h3);  % label value
+% [XL2 YL2] = drawHashMarks(C3,'b');
+% hl3 = line(XL2,YL2,'Color','k','LineWidth',3);
+set(h3,'LineWidth',2);
+
+% draw a single contour of the inequality constrint g2
+% at the solution
+[C7,h7] = contour(x1,x2,G2,[g1b g2b],'m:');
+clabel(C7,h7);  % label value
+set(h7,'LineWidth',2);
+
+% k2 = gtext('g2');
+% set(k2,'FontName','Times','FontWeight','bold', ...
+%     'FontSize',14,'Color','red')
+
+plot(x1b,x2b,'ro','MarkerSize',10, ...
+    'MarkerFaceColor','y')
+
+h3 = line([5 5],[0 5],'Color','k', ...
+    'LineWidth',2,'LineStyle','-');
+
+h4 = line([0 5],[5 5],'Color','k', ...
+    'LineWidth',2,'LineStyle','-');
+
+h5 = line([0 5],[0 0],'Color','k', ...
+    'LineWidth',2,'LineStyle','-');
+
+h6 = line([0 0],[0 5],'Color','k', ...
+    'LineWidth',2,'LineStyle','-');
+axis square
+
+%%%% tangent and gradient of the function at the solution
+dfdx1 = diff(f,x);
+dfdx2 = diff(f,y);
+grad =[dfdx1;dfdx2];
+gradval = double(subs(grad,{x,y},{x1b,x2b}));
+delx1t = [-0.1 0.1];
+delx1g = [0 -0.2];
+delx2_t = -(gradval(1,1)/gradval(2,1))*delx1t;
+delx2_g =  (gradval(2,1)/gradval(1,1))*delx1g;
+x1_t = x1b + delx1t;
+x1_g = x1b + delx1g;
+x2_t = x2b + delx2_t;
+x2_g = x2b + delx2_g;
+hg1 = line(x1_g, x2_g,'Color','g', ...
+     'LineWidth',4,'LineStyle','>');
+hg12 = line(x1_g, x2_g,'Color','g', ...
+     'LineWidth',4,'LineStyle','--');
+% ht1 = line(x1_t, x2_t,'Color','b', ...
+%      'LineWidth',4,'LineStyle','>');
+% ht12 = line(x1_t, x2_t,'Color','b', ...
+%      'LineWidth',4,'LineStyle','--');
+
+%%%%  gradient of the active constraint g1
+dg1dx1 = diff(g1,x);
+dg1dx2 = diff(g1,y);
+gradh =[dg1dx1;dg1dx2];
+gradhval = double(subs(gradh,{x,y},{x1b,x2b}));
+delx1g_h = [0 +0.15];
+delx2_gh =  (gradhval(2,1)/gradhval(1,1))*delx1g_h;
+x1_gh = x1b + delx1g_h;
+x2_gh = x2b + delx2_gh;
+
+%%%% draw the tangent and gradient
+hg2 = line(x1_gh, x2_gh,'Color','r', ...
+     'LineWidth',3,'LineStyle','>');
+hg22 = line(x1_gh, x2_gh,'Color','r', ...
+     'LineWidth',3,'LineStyle','--');
+ 
+%%%%  gradient of the inactive constraint g2
+dg2dx1 = diff(g2,x);
+dg2dx2 = diff(g2,y);
+gradh =[dg2dx1;dg2dx2];
+gradhval = double(subs(gradh,{x,y},{x1b,x2b}));
+delx1g_h = [0 +0.25];
+delx2_gh =  (gradhval(2,1)/gradhval(1,1))*delx1g_h;
+x1_gh = x1b + delx1g_h;
+x2_gh = x2b + delx2_gh;
+
+%%%% draw the tangent and gradient
+hg3 = line(x1_gh, x2_gh,'Color','r', ...
+     'LineWidth',3,'LineStyle','>');
+hg32 = line(x1_gh, x2_gh,'Color','r', ...
+     'LineWidth',3,'LineStyle','--');
+
+hold off

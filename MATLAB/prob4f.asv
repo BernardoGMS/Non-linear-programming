@@ -1,0 +1,112 @@
+function [x,VIOLG,VIOLI,miu,miv,theta,THETA]=prob4f(metodo)
+clc;close all;clear all;metodo='GC';
+tipo_resol=2;
+syms x1 x2
+
+% Inicializacao
+[x,~,miu,miv,~,thetaz,igthetaz,desigthetaz,alpha]=prob4d(tipo_resol);
+Nig=size(igthetaz,1);Ndes=size(desigthetaz,1);
+
+theta(1,1)=subs(thetaz,[x1,x2],[x(1,1),x(1,2)]);
+
+epsilon=0.01;
+VIOLG=zeros(1,Ndes);VIOLI=zeros(1,Nig);
+
+k=1;
+VIOLG(k,:)=max(subs(desigthetaz,[x1,x2],[x(k,1),x(k,2)]),0);
+VIOLI(k,:)=max(abs(subs(igthetaz,[x1,x2],[x(k,1),x(k,2)])));
+
+% Primeira vez:
+% Rotina interna (Minimizacao da funcao penalizada - sem constrangimentos)
+if strcmp(metodo,'GC')
+[xx,THETA(k,1)]=gradientes_conj_FleRee(alpha);
+elseif strcmp(metodo,'RS')
+[xx,THETA(k,1)]=Rosenbrock(alpha);
+else
+error('Metodo desconhecido!!!!')
+end
+
+for i=1:inf
+
+x(k+1,:)=xx(end,:);
+theta(k+1,1)=subs(thetaz,[x1,x2],[x(k+1,1),x(k+1,2)]);
+
+VIOLG(k+1,:)=max(subs(desigthetaz,[x1,x2],[x(k+1,1),x(k+1,2)]),0);
+VIOLI(k+1,:)=max(abs(subs(igthetaz,[x1,x2],[x(k+1,1),x(k+1,2)])));
+activeG(1,:)=zeros(1,Ndes);
+
+%% Verificacao das violacoes das desigualdades
+for j=1:Ndes
+if VIOLG(k+1,j)>epsilon/1000 && active(k,j)==0
+    active(k+1,j)=1;
+    miu(k+1,j)=.1;fprintf('Activa %6.2f miu(%s,%s)...    ',miu(k+1,j),int2str(k+1),int2str(j))
+elseif VIOLG(k+1,j)>epsilon/1000 && active(k,j)==1
+    active(k+1,j)=1;
+    miu(k+1,j)=10*miu(k,j);fprintf('Actualiza %6.2f miu(%s,%s)...    ',miu(k+1,j),int2str(k+1),int2str(j)) 
+else active(k+1,j)=0;miu(k+1,j)=0;fprintf('Nao actualiza %6.2f miu(%s,%s)...    ',miu(k+1,j),int2str(k+1),int2str(j))
+end
+fprintf('\n')
+end
+
+%% Verificacao das violacoes das igualdades
+
+for j=1:Nig
+    
+if VIOLI(k+1,j)>VIOLI(k,j)
+    if miv(k,j)>0
+    miv(k+1,j)=10*miv(k,j);fprintf('Actualiza %6.2f miv(%s,%s)...    ',miv(k+1,j),int2str(k+1),int2str(j))
+    elseif max(miv(:,j))==0
+    miv(k+1,j)=.1;fprintf('Actualiza %6.2f miv(%s,%s)...    ',miv(k+1,j),int2str(k+1),int2str(j))
+    else
+    miv(k+1,j)=10*max(miv(:,j));fprintf('Actualiza %6.2f miv(%s,%s)...    ',miv(k+1,j),int2str(k+1),int2str(j))
+    end
+else miv(k+1,j)=0;fprintf('Nao actualiza %6.2f miv(%s,%s)...    ',miv(k+1,j),int2str(k+1),int2str(j))
+end
+fprintf('\n')
+end
+
+    k=k+1;
+    
+    alpha=thetaz+miu(k,:)*desigthetaz.^2+miv(k,:)*igthetaz.^2;
+    fprintf('Alpha de k=%s...  \n',int2str(k))
+    pretty(alpha)
+    
+    kk=0;
+    for j=1:Ndes
+        fprintf('VIOLG(k,j) %E k=%s...  \n',VIOLG(k,j),int2str(k))
+        if VIOLG(k,j)<epsilon
+        kk=kk+1;
+        end
+    end
+    
+    for j=1:Nig
+        fprintf('VIOLI(k,j) %E k=%s...  \n',VIOLI(k,j),int2str(k))
+        if VIOLI(k,j)<epsilon
+        kk=kk+1;
+        end
+    end
+    
+    pretty(alpha)
+    
+%% Procurar nova solucao
+    if strcmp(metodo,'GC')
+    [xx,THETA(k,1)]=gradientes_conj_FleRee(alpha);
+    elseif strcmp(metodo,'RS')
+    [xx,THETA(k,1)]=Rosenbrock(alpha);
+    else
+    error('Metodo desconhecido!!!!')
+    end
+
+    if k>2
+    if abs(THETA(k,:)-THETA(k-1,:))<epsilon && kk==Nig+Ndes
+        return
+    end
+    end
+
+if i==15
+    disp(i)
+    return
+end
+end
+
+end

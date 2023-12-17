@@ -1,0 +1,242 @@
+function [x,y,D,lambda_,THETA,delta,ymais,ymenos]=prob2
+
+%% min((x1^2-x2)^2+2*(x2-x1)^4)
+
+syms x1 x2 lambdaz
+thetas=(x1^3-x2)^2+2*(x2-x1)^4; %funcao a minimizar
+% thetas=(x1-2)^4+(x1-2*x2)^2; %funcao a minimizar
+
+xp1=-2:0.01:3;xp2=-2:0.01:3;
+[X1,X2]=meshgrid(xp1,xp2);
+
+% z=(X1-2).^2+(X1-2*X2).^2;
+z=(X1.^3-X2).^2+2*(X2-X1).^4;
+
+% Preparar o plot da funcao
+titulo='Minimizacao - Metodo de Hooke-Jeeves';
+            
+scrsz = get(0,'ScreenSize');
+posfig=[scrsz(3) scrsz(4) scrsz(3) scrsz(4)];
+
+figure('Name',['Problema 2: ',titulo],...
+'NumberTitle','off','OuterPosition',posfig);
+hold on;
+
+contour(X1,X2,z,'ShowText','on');hold on;
+xlabel('X1');ylabel('X2');
+
+% Condicao de 2ordem para x* ser um optimo local:
+% f:En-->E1 é duplamente diff em x*, se x* e um minimo local, entao
+% grad(f(x*))=0 e H(x*) e positivo semi-definido
+
+%% b) Resolver pelo Metodo de Hooke-Jeeves
+
+%% METODO HOOKE-JEEVES
+
+tdirect=1; %escolher linha de procura (1) ou passos discretos (2)
+
+%% Passo de inicialização
+
+epsilon=.001; %escalar maior que 0
+x(1,:)=[0 0]; %ponto inicial de procura
+d=[1 0;0 1];
+y(1,:,1)=x;
+
+if tdirect==1
+    
+    l=0.01;
+    intervalo(1,1)=-3;intervalo(1,2)=3; %intervalo inicial de incerteza
+    a(1)=intervalo(1,1);b(1)=intervalo(1,2);
+    alpha1=0.618;
+    lambda(1)=a(1)+(1-alpha1)*(b(1)-a(1));
+    miu(1)=a(1)+alpha1*(b(1)-a(1));  
+    
+elseif tdirect==2
+    
+    delta(1)=.3;
+    if delta(1)<epsilon
+        error('delta tem de ser maior que epsilon')
+    end
+    ac_factor=3;
+    
+end
+
+THETA(1)=subs(thetas,[x1,x2],[x(1,1),x(1,2)]);
+
+k=1;
+j=k;
+n=2;
+%% Passos principais
+
+while j<n+1 % Passo 1
+    
+    if tdirect==1
+    fprintf('-------------------------------- \n')
+    
+    lambdas=subs(thetas,[x1,x2],[y(j,1,k)+lambdaz*d(j,1),y(j,2,k)+lambdaz*d(j,2)]);
+    lambdaj(j,k)=goldensection(lambdas,l,a,b,alpha1,lambda,miu);
+    
+    y(j+1,:,k)=y(j,:,k)+d(j,:)*lambdaj(j,k);
+    
+    plot(y(j:j+1,1,k),y(j:j+1,2,k),'ro-');hold on;
+    
+    if j<n
+        j=j+1;
+    else
+    x(k+1,:)=y(n+1,:,k);
+    if norm(x(k+1,:)-x(k,:))<epsilon 
+        
+     THETA(k+1)=subs(thetas,[x1,x2],[x(end,1),x(end,2)]);
+     plot(x(:,1),x(:,2),'g*');hold on;
+ 
+     return
+    else
+     THETA(k+1)=subs(thetas,[x1,x2],[x(k+1,1),x(k+1,2)]);
+     [y,j,k,DD,lambda__]=passo2(x,l,a,b,alpha1,lambda,miu,y,k,thetas); %Passo 2
+     D(k-1,:)=DD;
+     lambda_(k-1)=lambda__;
+    end
+    
+    end
+    
+    ymais='Linhadeprocura';ymenos='Linhadeprocura';delta='Linhadeprocura';
+    
+    elseif tdirect==2
+        
+        if (subs(thetas,[x1,x2],[y(j,1,k)+delta(k)*d(j,1),y(j,2,k)+delta(k)*d(j,2)]))<...
+                (subs(thetas,[x1,x2],[y(j,1,k),y(j,2,k)]))
+            
+            ymais(j,:,k)=y(j,:,k)+delta(k)*d(j,:);
+            fprintf('Sucesso! \n')
+            
+            y(j+1,:,k)=y(j,:,k)+d(j,:)*delta(k);
+            
+            plot(y(j:j+1,1,k),y(j:j+1,2,k),'ro-');hold on;
+
+            [y,j,k,x,delta,THETA]=passo2_passos(x,y,k,ac_factor,j,delta,thetas,n,THETA,epsilon);
+            
+            if delta(k)<=epsilon
+                
+                fprintf('FIM')
+                plot(x(:,1),x(:,2),'g*');hold on;
+                THETA(k)=subs(thetas,[x1,x2],[x(k,1),x(k,2)]);
+                return
+                
+            end
+            
+        elseif (subs(thetas,[x1,x2],[y(j,1,k)+delta(k)*d(j,1),y(j,2,k)+delta(k)*d(j,2)]))>=...
+                (subs(thetas,[x1,x2],[y(j,1,k),y(j,2,k)]))
+            
+            ymenos(j,:,k)=y(j,:,k)-delta(k)*d(j,:);
+            fprintf('Fracasso! \n')
+            
+            y(j+1,:,k)=y(j,:,k)-d(j,:)*delta(k);
+            
+            plot(y(j:j+1,1,k),y(j:j+1,2,k),'ro-');hold on;
+            
+            [y,j,k,x,delta,THETA]=passo2_passos(x,y,k,ac_factor,j,delta,thetas,n,THETA,epsilon);
+            
+            if delta(k)<=epsilon
+                
+                fprintf('FIM')
+                plot(x(:,1),x(:,2),'g*');hold on;
+                THETA(k)=subs(thetas,[x1,x2],[x(k,1),x(k,2)]);
+                return
+                
+            end
+            
+            
+        end
+        
+        lambda_='PassosDiscretos';D='PassosDiscretos';
+        
+       
+%         if isnan((subs(thetas,[x1,x2],[y(j,1,k)+delta(j,k)*d(j,1),y(j,2,k)+delta(j,k)*d(j,2)])))
+%         
+%         fprintf('Processo viciado');
+%         return
+% 
+%         end
+
+    end
+
+end
+
+end
+
+function [y,j,k,D,lambda_]=passo2(x,l,a,b,alpha1,lambda,miu,y,k,thetas)
+
+    syms lambdaz x1 x2
+
+        % Passo 2
+    
+    D=x(k+1,:)-x(k,:);
+    
+    lambdas=subs(thetas,[x1,x2],[x(k+1,1)+lambdaz*D(1),x(k+1,2)+lambdaz*D(2)]);
+    
+    lambda_=goldensection(lambdas,l,a,b,alpha1,lambda,miu);
+    
+    y(1,:,k+1)=x(k+1,:)+lambda_*D;
+    
+    yy(1,:)=y(3,:,k);yy(2,:)=y(1,:,k+1);plot(yy(:,1),yy(:,2),'r-.');hold on;
+    
+    j=1;k=k+1;
+
+end
+
+function [y,j,k,x,delta,THETA]=passo2_passos(x,y,k,ac_factor,j,delta,thetas,n,THETA,epsilon)
+
+    syms x1 x2
+
+        if j<n % Passo 2
+                j=j+1;
+            elseif j==n && (subs(thetas,[x1,x2],[y(n+1,1,k),y(n+1,2,k)]))<...
+                (subs(thetas,[x1,x2],[x(k,1),x(k,2)])) % Passo 3
+ 
+                [y,j,k,x,THETA,delta]=passo3_passos(x,y,k,ac_factor,n,thetas,delta);
+            
+            elseif j==n && (subs(thetas,[x1,x2],[y(n+1,1,k),y(n+1,2,k)]))>=...
+                (subs(thetas,[x1,x2],[x(k,1),x(k,2)])) % Passo 4
+
+            if delta<=epsilon
+
+                THETA(k)=subs(thetas,[x1,x2],[x(k,1),x(k,2)]);
+                return
+                
+            else
+                
+                delta(k+1)=delta(k)/2;
+                
+                y(1,:,k+1)=x(k,:);
+                yy(1,:)=y(3,:,k);yy(2,:)=y(1,:,k+1);plot(yy(:,1),yy(:,2),'r-.');hold on
+                x(k+1,:)=x(k,:);
+                
+                THETA(k+1)=subs(thetas,[x1,x2],[x(k+1,1),x(k+1,2)]);
+                
+                k=k+1;j=1;
+                
+            end
+                
+       end
+
+end
+
+function [y,j,k,x,THETA,delta]=passo3_passos(x,y,k,ac_factor,n,thetas,delta)
+
+    syms x1 x2
+
+        % Passo 3
+    
+    x(k+1,:)=y(n+1,:,k);
+    
+    THETA(k+1)=subs(thetas,[x1,x2],[x(k+1,1),x(k+1,2)]);
+
+    y(1,:,k+1)=x(k+1,:)+ac_factor*(x(k+1,:)-x(k,:));
+    
+    yy(1,:)=y(3,:,k);yy(2,:)=y(1,:,k+1);plot(yy(:,1),yy(:,2),'r-.');hold on;
+    
+    delta(k+1)=delta(k);
+    
+    j=1;k=k+1;
+
+end
